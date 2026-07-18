@@ -2,18 +2,22 @@
 
 import { useRef, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { fetchChat, fetchTrace } from '@/lib/api'
-import { parseChatResponse } from '@/lib/parse-chat-response'
-import { useChatState, type ChatMessage } from '@/lib/chat-state-context'
+import { useChatState } from '@/lib/chat-state-context'
 import { Send, Loader2, AlertCircle, ChevronDown, ChevronRight } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 
 export default function ChatPage() {
-  const { messages, setMessages, pushTrace, useRag, setUseRag, useRiskCheck, setUseRiskCheck } =
-    useChatState()
+  const {
+    messages,
+    useRag,
+    setUseRag,
+    useRiskCheck,
+    setUseRiskCheck,
+    isSending,
+    sendError,
+    sendMessage,
+  } = useChatState()
   const [input, setInput] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [expandedTools, setExpandedTools] = useState<Set<string>>(new Set())
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -27,63 +31,13 @@ export default function ChatPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!input.trim()) return
-
-    const userMessage: ChatMessage = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: input,
-      timestamp: new Date().toISOString(),
-    }
-
-    setMessages((prev) => [...prev, userMessage])
+    if (!input.trim() || isSending) return
+    const text = input
     setInput('')
-    setError(null)
-    setIsLoading(true)
-
-    try {
-      const response = await fetchChat({
-        message: input,
-        context: messages
-          .filter((m) => m.role === 'assistant')
-          .map((m) => m.content)
-          .join('\n\n'),
-        use_rag: useRag,
-        use_risk_check: useRiskCheck,
-      })
-
-      const parsed = parseChatResponse(response.response)
-
-      const assistantMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: response.response,
-        timestamp: new Date().toISOString(),
-        elapsed_seconds: response.elapsed_seconds,
-        caseMemory: parsed.caseMemory,
-        experts: parsed.experts,
-        toolCalls: parsed.toolCalls,
-        warnings: parsed.warnings,
-        mainContent: parsed.mainContent,
-        settingsUsed: response.settings_used,
-      }
-
-      setMessages((prev) => [...prev, assistantMessage])
-
-      // Đồng bộ trace mới nhất vào lịch sử dùng chung cho Dashboard (vấn đề 3:
-      // Dashboard hiện được nhiều lần chạy gần nhất, không chỉ 1 lần).
-      try {
-        const trace = await fetchTrace()
-        pushTrace(trace)
-      } catch {
-        // Không chặn luồng chính nếu lấy trace thất bại — chat vẫn đã thành công.
-      }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to send message'
-      setError(errorMessage)
-    } finally {
-      setIsLoading(false)
-    }
+    // sendMessage() chạy trong Context, không trong component này - nếu bạn
+    // chuyển sang tab khác trước khi có kết quả, request vẫn tiếp tục và kết
+    // quả vẫn được ghi lại đúng, không bị mất.
+    await sendMessage(text)
   }
 
   return (
@@ -296,7 +250,7 @@ export default function ChatPage() {
                 )}
               </div>
             ))}
-            {isLoading && (
+            {isSending && (
               <div className="flex justify-start">
                 <div className="bg-card border border-border rounded-lg px-4 py-3">
                   <Loader2 className="w-5 h-5 animate-spin text-primary" />
@@ -309,10 +263,10 @@ export default function ChatPage() {
       </div>
 
       {/* Error Message */}
-      {error && (
+      {sendError && (
         <div className="mx-3 md:mx-6 mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex gap-2">
           <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
-          <p className="text-sm text-red-600">{error}</p>
+          <p className="text-sm text-red-600">{sendError}</p>
         </div>
       )}
 
@@ -324,16 +278,16 @@ export default function ChatPage() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Nhập câu hỏi của bạn về nghiệp vụ ngân hàng..."
-            disabled={isLoading}
+            disabled={isSending}
             className="flex-1 px-3 md:px-4 py-2.5 rounded-lg bg-gray-50 border border-border text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 text-sm md:text-base transition-colors"
           />
           <Button
             type="submit"
-            disabled={isLoading || !input.trim()}
+            disabled={isSending || !input.trim()}
             className="gap-2 flex-shrink-0 bg-primary hover:bg-primary/90"
             size="sm"
           >
-            {isLoading ? (
+            {isSending ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
               <Send className="w-4 h-4" />

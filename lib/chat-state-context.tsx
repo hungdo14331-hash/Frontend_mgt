@@ -1,7 +1,8 @@
 'use client'
 
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
-import type { TraceResponse } from '@/lib/api'
+import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
+import { fetchChat, fetchTrace, type TraceResponse } from '@/lib/api'
+import { parseChatResponse } from '@/lib/parse-chat-response'
 
 export interface ChatMessage {
   id: string
@@ -31,6 +32,9 @@ interface ChatStateContextValue {
   setUseRag: (value: boolean) => void
   useRiskCheck: boolean
   setUseRiskCheck: (value: boolean) => void
+  isSending: boolean
+  sendError: string | null
+  sendMessage: (text: string) => Promise<void>
 }
 
 const ChatStateContext = createContext<ChatStateContextValue | null>(null)
@@ -57,6 +61,19 @@ export function ChatStateProvider({ children }: { children: ReactNode }) {
   const [useRag, setUseRagState] = useState(true)
   const [useRiskCheck, setUseRiskCheckState] = useState(true)
   const [hydrated, setHydrated] = useState(false)
+  const [isSending, setIsSending] = useState(false)
+  const [sendError, setSendError] = useState<string | null>(null)
+
+  // QUAN TRỌNG: dùng ref để sendMessage luôn đọc được giá trị mới nhất của
+  // messages/useRag/useRiskCheck tại thời điểm gọi, mà không cần đưa các biến
+  // này vào dependency của useCallback (tránh tạo lại hàm liên tục, và tránh
+  // "stale closure" - lấy nhầm giá trị cũ nếu người dùng đổi trang giữa chừng).
+  const messagesRef = useRef(messages)
+  const useRagRef = useRef(useRag)
+  const useRiskCheckRef = useRef(useRiskCheck)
+  messagesRef.current = messages
+  useRagRef.current = useRag
+  useRiskCheckRef.current = useRiskCheck
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -109,6 +126,69 @@ export function ChatStateProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
+  // sendMessage sống trong Context (không phải trong component ChatPage), nên
+  // dù người dùng chuyển sang tab khác giữa lúc đang chờ phản hồi (request có
+  // thể mất 10-40 giây), hàm này vẫn tiếp tục chạy và ghi kết quả đúng chỗ khi
+  // xong - không bị "mất tiến độ" như khi state nằm trong component có thể
+  // unmount.
+  const sendMessage = useCallback(async (text: string) => {
+    const trimmed = text.trim()
+    if (!trimmed) return
+
+    const userMessage: ChatMessage = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: trimmed,
+      timestamp: new Date().toISOString(),
+    }
+
+    setMessagesState((prev) => [...prev, userMessage])
+    setSendError(null)
+    setIsSending(true)
+
+    try {
+      const response = await fetchChat({
+        message: trimmed,
+        context: messagesRef.current
+          .filter((m) => m.role === 'assistant')
+          .map((m) => m.content)
+          .join('\n\n'),
+        use_rag: useRagRef.current,
+        use_risk_check: useRiskCheckRef.current,
+      })
+
+      const parsed = parseChatResponse(response.response)
+
+      const assistantMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: response.response,
+        timestamp: new Date().toISOString(),
+        elapsed_seconds: response.elapsed_seconds,
+        caseMemory: parsed.caseMemory,
+        experts: parsed.experts,
+        toolCalls: parsed.toolCalls,
+        warnings: parsed.warnings,
+        mainContent: parsed.mainContent,
+        settingsUsed: response.settings_used,
+      }
+
+      setMessagesState((prev) => [...prev, assistantMessage])
+
+      try {
+        const trace = await fetchTrace()
+        pushTrace(trace)
+      } catch {
+        // Không chặn luồng chính nếu lấy trace thất bại - chat vẫn đã thành công.
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to send message'
+      setSendError(errorMessage)
+    } finally {
+      setIsSending(false)
+    }
+  }, [pushTrace])
+
   return (
     <ChatStateContext.Provider
       value={{
@@ -121,6 +201,9 @@ export function ChatStateProvider({ children }: { children: ReactNode }) {
         setUseRag: setUseRagState,
         useRiskCheck,
         setUseRiskCheck: setUseRiskCheckState,
+        isSending,
+        sendError,
+        sendMessage,
       }}
     >
       {children}

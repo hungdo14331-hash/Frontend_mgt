@@ -73,15 +73,18 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
       {/* SHB Logo/Header */}
       <div className="p-4 border-b border-sidebar-border sticky top-0 bg-sidebar z-10">
         <div className="flex items-center gap-2 mb-2">
-          <div className="w-8 h-8 rounded bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white font-bold text-sm">
+          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white font-bold text-sm shadow-sm ring-1 ring-orange-400/30">
             SHB
           </div>
           <div className="flex-1">
-            <p className="text-xs font-bold text-sidebar-foreground leading-tight">SHB</p>
+            <p className="text-sm font-bold text-sidebar-foreground leading-tight">SHB</p>
             <p className="text-xs text-sidebar-foreground/70">Digital Expert Agents</p>
           </div>
         </div>
         <p className="text-xs text-sidebar-foreground/60 mt-2">Hội đồng chuyên gia số cho Nghiệp vụ Ngân hàng</p>
+        <p className="text-xs font-medium text-orange-600 mt-1.5 italic">
+          Đối tác tin cậy - Giải pháp phù hợp
+        </p>
       </div>
 
       {/* Main Navigation */}
@@ -138,7 +141,7 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
 
         {/* AI-Powered Section */}
         <div className="pt-6 mt-6 border-t border-sidebar-border">
-          <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-lg p-4 space-y-2">
+          <div className="bg-gradient-to-br from-blue-50 to-orange-50 rounded-lg p-4 space-y-2">
             <div className="flex items-start gap-2">
               <Zap className="w-4 h-4 text-orange-500 flex-shrink-0 mt-0.5" />
               <div>
@@ -147,7 +150,7 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
                 <p className="text-xs text-sidebar-foreground/70 mt-2">Multi-Agent AI System for SHB Digital Transformation</p>
               </div>
             </div>
-            <a href="#" className="inline-flex text-xs font-semibold text-primary hover:text-primary/80 transition-colors">
+            <a href="#" className="inline-flex text-xs font-semibold text-orange-600 hover:text-orange-700 transition-colors">
               Learn more →
             </a>
           </div>
