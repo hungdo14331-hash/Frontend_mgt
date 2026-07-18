@@ -1,34 +1,20 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useRef, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { fetchChat } from '@/lib/api'
+import { fetchChat, fetchTrace } from '@/lib/api'
 import { parseChatResponse } from '@/lib/parse-chat-response'
+import { useChatState, type ChatMessage } from '@/lib/chat-state-context'
 import { Send, Loader2, AlertCircle, ChevronDown, ChevronRight } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 
-interface Message {
-  id: string
-  role: 'user' | 'assistant'
-  content: string
-  timestamp: Date
-  elapsed_seconds?: number
-  caseMemory?: string | null
-  experts?: Array<{ name: string; color: string }>
-  toolCalls?: Array<{ expert: string; tool: string; args: string; result: string }>
-  warnings?: string[]
-  mainContent?: string
-  settingsUsed?: { use_rag: boolean; use_risk_check: boolean }
-}
-
 export default function ChatPage() {
-  const [messages, setMessages] = useState<Message[]>([])
+  const { messages, setMessages, pushTrace, useRag, setUseRag, useRiskCheck, setUseRiskCheck } =
+    useChatState()
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [expandedTools, setExpandedTools] = useState<Set<string>>(new Set())
-  const [useRag, setUseRag] = useState(true)
-  const [useRiskCheck, setUseRiskCheck] = useState(true)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const scrollToBottom = () => {
@@ -43,11 +29,11 @@ export default function ChatPage() {
     e.preventDefault()
     if (!input.trim()) return
 
-    const userMessage: Message = {
+    const userMessage: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
       content: input,
-      timestamp: new Date(),
+      timestamp: new Date().toISOString(),
     }
 
     setMessages((prev) => [...prev, userMessage])
@@ -68,11 +54,11 @@ export default function ChatPage() {
 
       const parsed = parseChatResponse(response.response)
 
-      const assistantMessage: Message = {
+      const assistantMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         content: response.response,
-        timestamp: new Date(),
+        timestamp: new Date().toISOString(),
         elapsed_seconds: response.elapsed_seconds,
         caseMemory: parsed.caseMemory,
         experts: parsed.experts,
@@ -83,6 +69,15 @@ export default function ChatPage() {
       }
 
       setMessages((prev) => [...prev, assistantMessage])
+
+      // Đồng bộ trace mới nhất vào lịch sử dùng chung cho Dashboard (vấn đề 3:
+      // Dashboard hiện được nhiều lần chạy gần nhất, không chỉ 1 lần).
+      try {
+        const trace = await fetchTrace()
+        pushTrace(trace)
+      } catch {
+        // Không chặn luồng chính nếu lấy trace thất bại — chat vẫn đã thành công.
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to send message'
       setError(errorMessage)
@@ -106,7 +101,7 @@ export default function ChatPage() {
             type="button"
             role="switch"
             aria-checked={useRag}
-            onClick={() => setUseRag((v) => !v)}
+            onClick={() => setUseRag(!useRag)}
             className={`relative w-9 h-5 rounded-full transition-colors flex-shrink-0 ${
               useRag ? 'bg-primary' : 'bg-gray-300'
             }`}
@@ -125,7 +120,7 @@ export default function ChatPage() {
             type="button"
             role="switch"
             aria-checked={useRiskCheck}
-            onClick={() => setUseRiskCheck((v) => !v)}
+            onClick={() => setUseRiskCheck(!useRiskCheck)}
             className={`relative w-9 h-5 rounded-full transition-colors flex-shrink-0 ${
               useRiskCheck ? 'bg-primary' : 'bg-gray-300'
             }`}
@@ -169,7 +164,7 @@ export default function ChatPage() {
                   <div className="max-w-xs md:max-w-lg px-4 py-3 rounded-lg bg-primary text-primary-foreground break-words">
                     <p className="text-sm">{message.content}</p>
                     <span className="text-xs opacity-70 mt-2 block">
-                      {message.timestamp.toLocaleTimeString()}
+                      {new Date(message.timestamp).toLocaleTimeString()}
                     </span>
                   </div>
                 ) : (

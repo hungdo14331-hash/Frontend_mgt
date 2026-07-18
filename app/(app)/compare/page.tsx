@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { fetchCompare } from '@/lib/api'
+import { useChatState } from '@/lib/chat-state-context'
 import { Loader2, AlertCircle } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 
@@ -20,12 +21,11 @@ interface ComparisonResult {
 }
 
 export default function ComparePage() {
+  const { useRag, setUseRag, useRiskCheck, setUseRiskCheck } = useChatState()
   const [question, setQuestion] = useState('')
   const [result, setResult] = useState<ComparisonResult | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [useRag, setUseRag] = useState(true)
-  const [useRiskCheck, setUseRiskCheck] = useState(true)
 
   const handleCompare = async () => {
     if (!question.trim()) {
@@ -80,7 +80,7 @@ export default function ComparePage() {
                   type="button"
                   role="switch"
                   aria-checked={useRag}
-                  onClick={() => setUseRag((v) => !v)}
+                  onClick={() => setUseRag(!useRag)}
                   className={`relative w-9 h-5 rounded-full transition-colors flex-shrink-0 ${
                     useRag ? 'bg-primary' : 'bg-gray-300'
                   }`}
@@ -99,7 +99,7 @@ export default function ComparePage() {
                   type="button"
                   role="switch"
                   aria-checked={useRiskCheck}
-                  onClick={() => setUseRiskCheck((v) => !v)}
+                  onClick={() => setUseRiskCheck(!useRiskCheck)}
                   className={`relative w-9 h-5 rounded-full transition-colors flex-shrink-0 ${
                     useRiskCheck ? 'bg-primary' : 'bg-gray-300'
                   }`}

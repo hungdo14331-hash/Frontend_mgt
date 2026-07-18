@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from 'react'
 import { fetchSystemInfo, type SystemInfoResponse } from '@/lib/api'
+import { useChatState } from '@/lib/chat-state-context'
 import { Loader2, AlertCircle, Info, Cpu, Users, Tag } from 'lucide-react'
 
 export default function SettingsPage() {
+  const { useRag, useRiskCheck } = useChatState()
   const [info, setInfo] = useState<SystemInfoResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -92,7 +94,39 @@ export default function SettingsPage() {
             </div>
 
             <div className="bg-card border border-border rounded-lg p-4">
-              <p className="text-sm font-semibold text-foreground mb-3">Cấu hình mặc định</p>
+              <p className="text-sm font-semibold text-foreground mb-1">
+                Cấu hình đang áp dụng (trang Chat / Phân tích của bạn)
+              </p>
+              <p className="text-xs text-muted-foreground mb-3">
+                Đây là trạng thái 2 công tắc bạn đã bật/tắt gần nhất, áp dụng cho lần gửi tiếp
+                theo ở trang Tạo yêu cầu và Phân tích.
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <span
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium border ${
+                    useRag
+                      ? 'bg-green-500/10 text-green-700 border-green-500/30'
+                      : 'bg-gray-500/10 text-gray-600 border-gray-500/30'
+                  }`}
+                >
+                  Tra cứu quy định (RAG): {useRag ? 'Bật' : 'Tắt'}
+                </span>
+                <span
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium border ${
+                    useRiskCheck
+                      ? 'bg-green-500/10 text-green-700 border-green-500/30'
+                      : 'bg-gray-500/10 text-gray-600 border-gray-500/30'
+                  }`}
+                >
+                  Cảnh báo rủi ro: {useRiskCheck ? 'Bật' : 'Tắt'}
+                </span>
+              </div>
+            </div>
+
+            <div className="bg-card border border-border rounded-lg p-4">
+              <p className="text-sm font-semibold text-foreground mb-3">
+                Cấu hình mặc định hệ thống (khi chưa từng đổi công tắc)
+              </p>
               <div className="flex gap-3">
                 <span
                   className={`px-3 py-1.5 rounded-full text-xs font-medium border ${
@@ -121,10 +155,8 @@ export default function SettingsPage() {
             </div>
 
             <p className="text-xs text-muted-foreground">
-              Muốn bật/tắt RAG hoặc cảnh báo rủi ro cho một yêu cầu cụ thể? Vào trang{' '}
-              <span className="font-medium text-foreground">Tạo yêu cầu</span> hoặc{' '}
-              <span className="font-medium text-foreground">Phân tích</span> — mỗi công tắc chỉ áp
-              dụng cho lần gửi đó, không thay đổi cấu hình chung của hệ thống.
+              2 công tắc RAG và Cảnh báo rủi ro dùng chung giữa trang Tạo yêu cầu và Phân tích —
+              đổi ở trang nào cũng áp dụng cho cả 2, và được lưu lại trong trình duyệt này.
             </p>
           </div>
         )}

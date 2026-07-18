@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { fetchTrace, type TraceResponse } from '@/lib/api'
+import { useChatState } from '@/lib/chat-state-context'
 import { EXPERT_SOLID_COLORS } from '@/lib/parse-chat-response'
 import {
   Loader2,
@@ -50,6 +51,7 @@ function summarizeToolResult(result: unknown): string {
 }
 
 export default function DashboardPage() {
+  const { traceHistory } = useChatState()
   const [trace, setTrace] = useState<TraceResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -446,6 +448,61 @@ export default function DashboardPage() {
                       </span>
                     </div>
                   </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Lịch sử xử lý gần đây - vấn đề 3: hiện nhiều lần thay vì chỉ 1 lần
+              gần nhất. Dữ liệu lấy từ traceHistory trong Context, được ghi lại
+              phía Frontend mỗi khi trang Chat nhận response mới - vì backend
+              (LAST_RUN_LOG) chỉ giữ đúng 1 dict, không phải danh sách. */}
+          <div>
+            <h2 className="text-xl font-bold text-foreground mb-4">
+              Lịch sử xử lý gần đây ({traceHistory.length})
+            </h2>
+            <div className="bg-white border border-border rounded-lg p-4 md:p-6">
+              {traceHistory.length === 0 ? (
+                <p className="text-muted-foreground text-center py-6 text-sm">
+                  Chưa có lịch sử nào được ghi lại trong phiên này. Lịch sử chỉ lưu tối đa 10 lần
+                  gần nhất và chỉ trong trình duyệt hiện tại.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {traceHistory.map((entry, idx) => (
+                    <div
+                      key={`${entry.recorded_at}-${idx}`}
+                      className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted/40 transition-colors border border-transparent hover:border-border"
+                    >
+                      <span className="text-xs text-muted-foreground font-mono flex-shrink-0 w-16 pt-0.5">
+                        {new Date(entry.recorded_at).toLocaleTimeString('vi-VN', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-foreground truncate">{entry.user_input}</p>
+                        <div className="flex flex-wrap items-center gap-2 mt-1">
+                          {entry.experts_called_display.map((name) => (
+                            <span
+                              key={name}
+                              className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600"
+                            >
+                              {name}
+                            </span>
+                          ))}
+                          {entry.risk_flagged && (
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-600 flex items-center gap-1">
+                              <ShieldAlert className="w-3 h-3" /> Rủi ro
+                            </span>
+                          )}
+                          <span className="text-xs text-muted-foreground ml-auto flex-shrink-0">
+                            {entry.timings.total_sec}s
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
