@@ -81,7 +81,7 @@ export interface SystemInfoResponse {
   note: string
 }
 
-interface TraceResponse {
+export interface TraceResponse {
   user_input: string
   experts_called: string[]
   experts_called_display: string[]
@@ -96,9 +96,12 @@ interface TraceResponse {
   synthesis_used: boolean
   risk_flagged: boolean
   memory_state: {
-    customer_id?: string
-    facts: string[]
-    cached_tools: Record<string, unknown>
+    customer_id: string
+    facts: {
+      loan_amount?: number
+      income_monthly?: number
+    }
+    cached_tools: number
     experts_consulted: string[]
     history_length: number
   }
@@ -107,6 +110,10 @@ interface TraceResponse {
     experts_sec: number
     synthesis_sec: number
     total_sec: number
+  }
+  settings_used?: {
+    use_rag: boolean
+    use_risk_check: boolean
   }
   has_data: boolean
 }
